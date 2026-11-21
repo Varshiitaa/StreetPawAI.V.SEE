@@ -124,6 +124,20 @@ GUIDED_DISTRESS_QUESTIONS = [
             "4. Offer small sips of cool water with a pinch of electrolytes (ORS).",
             "5. Contact a veterinarian immediately if seizures or unresponsiveness occur."
         ]
+    },
+    {
+        "id": "hospitals_closed",
+        "question": "What should I do if all veterinary hospitals are closed? What precautions can I take?",
+        "category": "After-Hours & Closed Hospital Emergency",
+        "steps": [
+            "1. CHECK 24/7 CASUALTY EMERGENCY: Major institutions like CUPA Trauma Center (Hebbal/RT Nagar) and Queen's Road Govt Veterinary Hospital run round-the-clock emergency triage. Check our 'Verified Help Directory' tab filtered for 24/7.",
+            "2. BLEEDING & TRAUMA: Apply continuous, firm direct pressure with clean sterile gauze/cloth for 10-15 minutes without lifting. Do NOT use tight tourniquets or wires.",
+            "3. PREVENT FATAL HYPOTHERMIA & SHOCK: Keep the animal in a warm, dark, silent room wrapped loosely in blankets. Shock causes rapid drop in core body temperature.",
+            "4. STRICT WARNING ON HUMAN MEDICINES: NEVER give Paracetamol, Crocin, Dolo, Ibuprofen, or Aspirin. Human pain medications cause acute, irreversible liver/kidney necrosis in canines.",
+            "5. SUSPECTED POISONING / TOXINS: Do NOT force-feed salt or oil to induce vomiting (this causes fatal aspiration). Keep airways clear and offer small sips of clean water or ORS if conscious.",
+            "6. FRACTURES OR HIT-AND-RUN: Minimize movement. Slide a flat rigid wooden board or taut blanket under the dog to transport without twisting the spinal column.",
+            "7. BROADCAST A COMMUNITY DISTRESS SOS: Hit the red 'REGISTER COMPLAINT / SOS' button on StreetPaw AI. Your ticket is dispatched to active field rescue units and nighttime patrol volunteers."
+        ]
     }
 ]
 
@@ -198,9 +212,22 @@ def chat_query(
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    # Match predefined questions
+    # 1. First check high-priority emergency and specific queries (e.g. closed hospitals)
+    if any(phrase in query for phrase in ["closed", "no vet", "no hospital", "night emergency", "after hours", "precaution"]):
+        for q in GUIDED_DISTRESS_QUESTIONS:
+            if q["id"] == "hospitals_closed":
+                return {
+                    "success": True,
+                    "reply": "\n".join(q["steps"]),
+                    "category": q["category"],
+                    "is_guided": True
+                }
+
+    # 2. Match predefined guided questions by key phrase match
     for q in GUIDED_DISTRESS_QUESTIONS:
-        if any(w in query for w in q["id"].split("_")):
+        keywords = q["id"].split("_")
+        # Ensure multi-token keywords match sensibly
+        if all(k in query for k in keywords):
             return {
                 "success": True,
                 "reply": "\n".join(q["steps"]),
@@ -208,19 +235,26 @@ def chat_query(
                 "is_guided": True
             }
 
-    # Match FAQ database
+    # 3. Match FAQ database with scored keyword overlap (longer match wins)
+    best_faq = None
+    best_len = 0
     if FAQ_FILE.exists():
         with open(FAQ_FILE, "r", encoding="utf-8") as f:
             faqs = json.load(f)
             for item in faqs:
                 for kw in item.get("keywords", []):
-                    if kw.lower() in query:
-                        return {
-                            "success": True,
-                            "reply": item.get("answer"),
-                            "category": "Welfare Knowledge Base",
-                            "is_guided": False
-                        }
+                    kw_lower = kw.lower()
+                    if kw_lower in query and len(kw_lower) > best_len:
+                        best_faq = item
+                        best_len = len(kw_lower)
+
+    if best_faq:
+        return {
+            "success": True,
+            "reply": best_faq.get("answer"),
+            "category": "Welfare Knowledge Base",
+            "is_guided": False
+        }
 
     return {
         "success": True,
