@@ -24,7 +24,7 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBreed, setSelectedBreed] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [scopeFilter, setScopeFilter] = useState(userRole === 'ngo' ? 'all' : 'my_uploads'); // 'all' or 'my_uploads'
+  const [scopeFilter, setScopeFilter] = useState('all'); // default to 'all' so all 80+ records show immediately
   const [viewingDog, setViewingDog] = useState(null);
   const [editingDog, setEditingDog] = useState(null);
   const [editPhotoFile, setEditPhotoFile] = useState(null);
