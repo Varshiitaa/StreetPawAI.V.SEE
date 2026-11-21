@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Card, Input, Button, Badge, Modal } from '@streetpaw/ui';
 import {
   Search, Camera, CheckCircle2, AlertCircle, MapPin, Calendar, Heart, Sparkles,
@@ -204,7 +204,8 @@ export function LostFoundPage() {
 
   // Submit Lost / Found Form
   const handleSubmitForm = async (kindType) => {
-    if (!token) {
+    const curToken = token || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+    if (!curToken) {
       alert("Please login to post a Lost or Found pet record.");
       return;
     }
@@ -232,7 +233,7 @@ export function LostFoundPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${curToken}`
         },
         body: JSON.stringify(payload)
       });
