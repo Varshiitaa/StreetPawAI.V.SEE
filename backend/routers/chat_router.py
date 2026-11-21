@@ -152,6 +152,20 @@ GUIDED_DISTRESS_QUESTIONS = [
             "6. 24-48 HOUR TRANSIT WINDOW FOR VACCINE: Anti-Rabies Vaccination (ARV) must be administered as early as possible. Plan transport to the nearest government Primary Health Center (PHC) or Taluk hospital where ARV is free. For Category III deep bleeding bites, Rabies Immunoglobulin (RIG) is also mandatory.",
             "7. OBSERVE THE DOG (IF LOCAL): If the stray or pet is known, observe it for 10-14 days. If it remains alive and healthy after 10 days, transmission risk from that bite is essentially zero (still complete your ARV schedule)."
         ]
+    },
+    {
+        "id": "rabies_symptoms",
+        "question": "How do we know if a dog has rabies or not? What are the key symptoms?",
+        "category": "Rabies Identification & Behavioral Triage",
+        "steps": [
+            "1. FURIOUS RABIES (EXCITATORY STAGE): Extreme unprovoked aggression, snapping at air or imaginary objects, biting inanimate objects (wood, stones, walls), restlessness, and pacing without rest.",
+            "2. SALIVATION & THROAT PARALYSIS: Excessive thick, frothy, ropy drool hanging from the mouth due to paralysis of swallowing muscles. Inability to drink water (hydrophobia in dogs manifests as painful spasms when trying to swallow).",
+            "3. VOICE CHANGE (HOARSE BARK): A peculiar, strained, rasping howl or pitch change due to paralysis of the vocal cords and larynx.",
+            "4. DUMB / PARALYTIC RABIES: 'Dropped jaw' appearance (mandible hangs open, tongue lolls out, cannot close mouth). Progressive weakness starting in the hind legs leading to ataxia, uncoordinated stumbling, and paralysis.",
+            "5. SENSITIVITY TO LIGHT & NOISE: Extreme agitation or seizures triggered by sudden loud noises, lights, or touch.",
+            "6. THE 10-DAY QUARANTINE GOLD STANDARD: Once clinical rabies symptoms appear, the animal will rapidly deteriorate and die within 7 to 10 days. If the dog is alive, healthy, and feeding after 10 days, it was NOT shedding rabies at the time of the bite.",
+            "7. DO NOT ATTEMPT RESTRAINT: Keep children and pets away. Immediately alert municipal animal control or trigger the 'REGISTER COMPLAINT / SOS' button on StreetPaw AI for humane van isolation."
+        ]
     }
 ]
 
@@ -226,7 +240,17 @@ def chat_query(
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    # 1. First check high-priority emergency and specific queries (e.g. bite with no hospital, closed hospitals)
+    # 1. First check high-priority emergency and specific queries (e.g. rabies identification, bite with no hospital, closed hospitals)
+    if any(phrase in query for phrase in ["how do we know if dog has rabies", "know if dog has rabies", "dog has rabies or not", "symptoms of rabies in dog", "rabid dog signs", "rabies symptoms", "sign of rabies"]):
+        for q in GUIDED_DISTRESS_QUESTIONS:
+            if q["id"] == "rabies_symptoms":
+                return {
+                    "success": True,
+                    "reply": "\n".join(q["steps"]),
+                    "category": q["category"],
+                    "is_guided": True
+                }
+
     if ("bite" in query or "bitten" in query) and any(phrase in query for phrase in ["no hospital", "hospitals closed", "no clinic", "nearby", "far", "remote", "precaution"]):
         for q in GUIDED_DISTRESS_QUESTIONS:
             if q["id"] == "bite_no_hospital":
