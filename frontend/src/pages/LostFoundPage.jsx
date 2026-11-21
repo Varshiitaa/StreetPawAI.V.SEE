@@ -625,7 +625,7 @@ export function LostFoundPage() {
           </button>
         </div>
 
-        {activeTab === 'browse' && (
+        {(activeTab === 'browse' || activeTab === 'archived') && (
           <div style={{ display: 'flex', gap: '6px', paddingRight: '6px' }}>
             <button
               type="button"
@@ -669,8 +669,8 @@ export function LostFoundPage() {
         )}
       </div>
 
-      {/* VIEW 1: BROWSE REGISTRY */}
-      {activeTab === 'browse' && (
+      {/* VIEW 1: BROWSE REGISTRY & ARCHIVE */}
+      {(activeTab === 'browse' || activeTab === 'archived') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* SEARCH & FILTERS BAR */}
@@ -970,33 +970,12 @@ export function LostFoundPage() {
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                               Posted by {post.owner_name}
                             </span>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              {/* Edit Option */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingPostData({ ...post });
-                                  setIsEditModalOpen(true);
-                                }}
-                                style={{
-                                  background: 'rgba(59, 130, 246, 0.15)',
-                                  color: '#60a5fa',
-                                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
-                              >
-                                <Edit3 size={11} /> Edit
-                              </button>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <Button variant="secondary" size="sm" icon={Eye}>
+                                View Matches
+                              </Button>
 
-                              {/* Discrete Delete Icon Button (Invisible Soft Delete) */}
+                              {/* Subtle minimal delete icon (invisible soft delete) */}
                               <button
                                 type="button"
                                 title={post.is_archived ? "Restore record" : "Remove"}
@@ -1007,47 +986,21 @@ export function LostFoundPage() {
                                 style={{
                                   background: 'none',
                                   border: 'none',
-                                  color: '#64748b',
-                                  padding: '5px',
+                                  color: '#475569',
+                                  padding: '4px',
                                   borderRadius: '4px',
                                   cursor: 'pointer',
-                                  display: 'flex',
+                                  display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  transition: 'color 0.2s ease',
-                                  opacity: 0.7
+                                  opacity: 0.35,
+                                  transition: 'opacity 0.2s ease'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.35'}
                               >
-                                <Trash2 size={13} />
+                                <Trash2 size={11} />
                               </button>
-
-                              <Button variant="secondary" size="sm" icon={Eye}>
-                                View Matches
-                              </Button>
-
-                              {/* Small discrete delete button for authorized staff */}
-                              {(user?.role === 'admin' || user?.role === 'ngo_staff') && (
-                                <button
-                                  type="button"
-                                  title="Admin Permanent Delete"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeletePost(post.id);
-                                  }}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#64748b',
-                                    cursor: 'pointer',
-                                    padding: '2px 4px',
-                                    fontSize: '10px'
-                                  }}
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1505,7 +1458,13 @@ export function LostFoundPage() {
                     {copiedShareId === selectedPost.id ? 'Copied Alert!' : 'Share Post'}
                   </Button>
 
-                  {/* Discrete Delete Icon Button */}
+                  {selectedPost.status !== 'reunited' && (
+                    <Button variant="emerald" size="sm" icon={Heart} onClick={() => handleMarkReunited(selectedPost.id)}>
+                      Mark Reunited 🎉
+                    </Button>
+                  )}
+
+                  {/* Subtle minimal delete icon */}
                   <button
                     type="button"
                     title={selectedPost.is_archived ? "Restore record" : "Remove"}
@@ -1513,58 +1472,21 @@ export function LostFoundPage() {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#64748b',
-                      padding: '6px',
-                      borderRadius: '6px',
+                      color: '#475569',
+                      padding: '4px',
+                      borderRadius: '4px',
                       cursor: 'pointer',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: 0.7
+                      opacity: 0.35,
+                      transition: 'opacity 0.2s ease'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.35'}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={12} />
                   </button>
-
-                  {/* Edit Option */}
-                  <Button
-                    variant="brand"
-                    size="sm"
-                    icon={Edit3}
-                    onClick={() => {
-                      setEditingPostData({ ...selectedPost });
-                      setIsEditModalOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-
-                  {selectedPost.status !== 'reunited' && (
-                    <Button variant="emerald" size="sm" icon={Heart} onClick={() => handleMarkReunited(selectedPost.id)}>
-                      Mark Reunited 🎉
-                    </Button>
-                  )}
-
-                  {/* Small discrete permanent delete only for Govt / NGO staff */}
-                  {(user?.role === 'admin' || user?.role === 'ngo_staff' || user?.role === 'govt_official') && (
-                    <button
-                      type="button"
-                      title="Admin Permanent Delete"
-                      onClick={() => handleDeletePost(selectedPost.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#64748b',
-                        cursor: 'pointer',
-                        padding: '4px 6px',
-                        fontSize: '11px'
-                      }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
                 </div>
               </div>
 
