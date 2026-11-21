@@ -63,6 +63,7 @@ def get_all_rescue_cases(
             "photo_url": c.photo,
             "photo": c.photo,
             "reporter_id": c.reporter_id,
+            "upvotes": c.upvotes or 1,
             "assigned_ngo": "CUPA Rescue Squad #4",
             "created_at": c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else None,
             "reported_by": "Verified Citizen (Contact Redacted)",
@@ -247,6 +248,7 @@ def get_my_complaints(
             "address": c.address,
             "city": c.city,
             "status": c.status,
+            "upvotes": c.upvotes or 1,
             "created_at": c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else None,
             "events": events_list
         })

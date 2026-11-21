@@ -254,14 +254,6 @@ def list_lost_found_posts(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    # Auto-expire check for old open posts
-    now = datetime.datetime.utcnow()
-    db.query(LostFoundPost).filter(
-        LostFoundPost.expires_at < now,
-        LostFoundPost.status == "open"
-    ).update({"status": "closed"}, synchronize_session=False)
-    db.commit()
-
     query = db.query(LostFoundPost)
 
     if kind and kind.lower() in ["lost", "found"]:
@@ -289,7 +281,107 @@ def list_lost_found_posts(
         )
 
     posts = query.order_by(LostFoundPost.created_at.desc()).all()
-    return [format_post_dict(p, db, current_user) for p in posts]
+
+    # Optimized bulk fetching: Preload all users, remarks, matches in 3 batch queries
+    all_user_ids = {p.owner_id for p in posts if p.owner_id}
+    post_ids = [p.id for p in posts]
+
+    users_map = {}
+    if all_user_ids:
+        users = db.query(User).filter(User.id.in_(all_user_ids)).all()
+        users_map = {u.id: u for u in users}
+
+    matches_map = {}
+    if post_ids:
+        raw_matches = db.query(LostFoundMatch).filter(
+            or_(LostFoundMatch.post_a.in_(post_ids), LostFoundMatch.post_b.in_(post_ids))
+        ).all()
+        # Collect matched post details
+        all_matched_ids = set()
+        for m in raw_matches:
+            all_matched_ids.add(m.post_a)
+            all_matched_ids.add(m.post_b)
+        all_posts_lookup = {p.id: p for p in posts}
+        missing_ids = all_matched_ids - set(all_posts_lookup.keys())
+        if missing_ids:
+            extra_posts = db.query(LostFoundPost).filter(LostFoundPost.id.in_(missing_ids)).all()
+            for ep in extra_posts:
+                all_posts_lookup[ep.id] = ep
+
+        for m in raw_matches:
+            for pid in (m.post_a, m.post_b):
+                if pid not in matches_map:
+                    matches_map[pid] = []
+                other_id = m.post_b if m.post_a == pid else m.post_a
+                other_post = all_posts_lookup.get(other_id)
+                if other_post:
+                    matches_map[pid].append({
+                        "match_id": m.id,
+                        "score": m.score,
+                        "status": m.status,
+                        "matched_post_id": other_post.id,
+                        "kind": other_post.kind,
+                        "dog_name": other_post.dog_name,
+                        "breed": other_post.breed,
+                        "photo": other_post.photo,
+                        "address": other_post.address
+                    })
+
+    remarks_map = {}
+    if post_ids:
+        remarks = db.query(PostRemark).filter(PostRemark.post_id.in_(post_ids)).order_by(PostRemark.created_at.desc()).all()
+        for r in remarks:
+            if r.post_id not in remarks_map:
+                remarks_map[r.post_id] = []
+            remarks_map[r.post_id].append({
+                "id": r.id,
+                "author_name": r.author_name or "Animal Advocate",
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            })
+
+    result = []
+    for p in posts:
+        owner = users_map.get(p.owner_id)
+        owner_name = (owner.full_name or owner.username) if owner else "Anonymous Citizen"
+        p_matches = matches_map.get(p.id, [])
+        p_remarks = remarks_map.get(p.id, [])
+
+        result.append({
+            "id": p.id,
+            "kind": p.kind,
+            "owner_id": p.owner_id,
+            "owner_name": owner_name,
+            "owner_phone": "Hidden until match confirmed",
+            "phone_hidden": True,
+            "dog_name": p.dog_name or ("Lost Pet" if p.kind == "lost" else "Found Pet"),
+            "breed": p.breed or "Indian Pariah / Desi",
+            "colour_markings": p.colour_markings or "Not specified",
+            "age_sex": p.age_sex or "Unknown",
+            "collar_microchip": p.collar_microchip or "None",
+            "photo": p.photo or "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&auto=format&fit=crop",
+            "lat": p.lat or 12.9716,
+            "lng": p.lng or 77.5946,
+            "address": p.address or "Bengaluru",
+            "city": p.city or "Bengaluru",
+            "state": p.state or "Karnataka",
+            "event_date": p.event_date.isoformat() if p.event_date else (p.created_at.isoformat() if p.created_at else None),
+            "reward": p.reward,
+            "contact_pref": p.contact_pref or "in_app",
+            "status": p.status or "open",
+            "is_archived": bool(getattr(p, 'is_archived', False)),
+            "upvotes": getattr(p, 'upvotes', 0) or 0,
+            "downvotes": getattr(p, 'downvotes', 0) or 0,
+            "remarks": p_remarks,
+            "remarks_count": len(p_remarks),
+            "expires_at": p.expires_at.isoformat() if p.expires_at else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "matches_count": len(p_matches),
+            "matches": p_matches,
+            "messages_count": 0
+        })
+
+    return result
 
 
 # -----------------------------------------------------------------------------

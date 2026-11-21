@@ -25,6 +25,7 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [activeFeedTab, setActiveFeedTab] = useState('community'); // 'community' | 'my'
 
   // Edit Modal State
   const [editingTicket, setEditingTicket] = useState(null);
@@ -35,10 +36,11 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
   const [remarks, setRemarks] = useState([]);
   const [newRemarkText, setNewRemarkText] = useState('');
   const [loadingRemarks, setLoadingRemarks] = useState(false);
+  const [upvoting, setUpvoting] = useState(false);
 
   useEffect(() => {
-    fetchMyComplaints();
-  }, []);
+    fetchComplaintsData(activeFeedTab);
+  }, [activeFeedTab]);
 
   useEffect(() => {
     if (selectedTicket && selectedTicket.public_id) {
@@ -86,26 +88,47 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
     }
   };
 
-  const fetchMyComplaints = async () => {
+  const handleUpvoteTicket = async (ticketId) => {
+    if (upvoting) return;
+    try {
+      setUpvoting(true);
+      const res = await fetch(`/api/complaints/${ticketId}/upvote`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setComplaints(prev => prev.map(c => (c.public_id === ticketId || c.id === ticketId) ? { ...c, upvotes: data.upvotes } : c));
+        if (selectedTicket && (selectedTicket.public_id === ticketId || selectedTicket.id === ticketId)) {
+          setSelectedTicket(prev => ({ ...prev, upvotes: data.upvotes }));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpvoting(false);
+    }
+  };
+
+  const fetchComplaintsData = async (feedMode = activeFeedTab) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('streetpaw_token');
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/complaints/my', { headers });
+      const endpoint = feedMode === 'my' ? '/api/complaints/my' : '/api/complaints/';
+      const res = await fetch(endpoint, { headers });
       if (res.ok) {
         const data = await res.json();
         setComplaints(data || []);
         if (data.length > 0 && !selectedTicket) {
           setSelectedTicket(data[0]);
         } else if (selectedTicket) {
-          const updatedSelected = data.find(c => c.public_id === selectedTicket.public_id);
+          const updatedSelected = data.find(c => c.public_id === selectedTicket.public_id || c.id === selectedTicket.id);
           if (updatedSelected) setSelectedTicket(updatedSelected);
+          else if (data.length > 0) setSelectedTicket(data[0]);
         }
       }
     } catch (err) {
-      console.error("Error fetching my complaints:", err);
+      console.error("Error fetching complaints:", err);
     } finally {
       setLoading(false);
     }
@@ -125,7 +148,7 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
 
       if (res.ok) {
         alert(`Ticket ${publicId} cancelled.`);
-        fetchMyComplaints();
+        fetchComplaintsData(activeFeedTab);
       } else {
         const err = await res.json();
         alert(err.detail || 'Could not cancel ticket.');
@@ -150,7 +173,7 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
       if (res.ok) {
         alert(`Complaint ${publicId} deleted successfully.`);
         if (selectedTicket?.public_id === publicId) setSelectedTicket(null);
-        fetchMyComplaints();
+        fetchComplaintsData(activeFeedTab);
       } else {
         const err = await res.json();
         alert(err.detail || 'Failed to delete complaint.');
@@ -187,7 +210,7 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
       if (res.ok) {
         alert(`Complaint ${editingTicket.public_id} updated successfully.`);
         setEditingTicket(null);
-        fetchMyComplaints();
+        fetchComplaintsData(activeFeedTab);
       } else {
         const err = await res.json();
         alert(err.detail || 'Failed to update complaint.');
@@ -229,16 +252,18 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
             </span>
           </div>
           <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>
-            My Registered Animal Complaints
+            {activeFeedTab === 'community' ? 'Public Community Animal Complaints' : 'My Registered Animal Complaints'}
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            Create, update, delete, and track your distress tickets sent to Municipal (BBMP) & NGO rescue units.
+            {activeFeedTab === 'community' 
+              ? 'Browse all reported distressed animals city-wide. Upvote urgent cases and contribute live sighting remarks.'
+              : 'Create, update, delete, and track your personal distress tickets sent to Municipal (BBMP) & NGO rescue units.'}
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={fetchMyComplaints}
+            onClick={() => fetchComplaintsData(activeFeedTab)}
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid var(--border-color)',
@@ -266,6 +291,51 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
             Create New Complaint
           </button>
         </div>
+      </div>
+
+      {/* Public vs My Complaints Primary Feed Switcher */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        background: '#111827',
+        border: '1px solid var(--border-color)',
+        borderRadius: '10px',
+        padding: '4px',
+        marginBottom: '18px',
+        width: 'fit-content'
+      }}>
+        <button
+          onClick={() => setActiveFeedTab('community')}
+          style={{
+            background: activeFeedTab === 'community' ? 'var(--accent-red)' : 'transparent',
+            color: activeFeedTab === 'community' ? '#fff' : '#9ca3af',
+            border: 'none',
+            borderRadius: '7px',
+            padding: '8px 18px',
+            fontSize: '12.5px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s'
+          }}
+        >
+          All Community Complaints
+        </button>
+        <button
+          onClick={() => setActiveFeedTab('my')}
+          style={{
+            background: activeFeedTab === 'my' ? 'var(--accent-red)' : 'transparent',
+            color: activeFeedTab === 'my' ? '#fff' : '#9ca3af',
+            border: 'none',
+            borderRadius: '7px',
+            padding: '8px 18px',
+            fontSize: '12.5px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s'
+          }}
+        >
+          My Filed Complaints
+        </button>
       </div>
 
       {/* Main Grid: List on Left, Ticket Inspection & Timeline on Right */}
@@ -364,7 +434,12 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: 'var(--text-dim)' }}>
                       <span>Reported: {c.created_at || 'Just now'}</span>
-                      <span style={{ color: '#fca5a5', fontWeight: 600 }}>{c.urgency} Priority</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <ThumbsUp size={10} /> {c.upvotes || 1}
+                        </span>
+                        <span style={{ color: '#fca5a5', fontWeight: 600 }}>{c.urgency} Priority</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -400,8 +475,30 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
                   </h3>
                 </div>
 
-                {/* Citizen 4 options: Create, Update, Delete, Track */}
+                {/* Citizen 4 options: Create, Update, Delete, Track, Upvote */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* Public Upvote Action */}
+                  <button
+                    onClick={() => handleUpvoteTicket(selectedTicket.public_id)}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#34d399',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                    title="Upvote urgent distress case"
+                  >
+                    <ThumbsUp size={12} />
+                    Upvote ({selectedTicket.upvotes || 1})
+                  </button>
+
                   {/* Update button */}
                   <button
                     onClick={() => openEditModal(selectedTicket)}

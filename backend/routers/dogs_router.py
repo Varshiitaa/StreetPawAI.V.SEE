@@ -81,11 +81,17 @@ def list_dog_registry(
     total = query.count()
     items = query.offset((page - 1) * limit).limit(limit).all()
 
+    # Pre-fetch all vaccinated dog IDs in one single query instead of N queries
+    dog_ids = [d.id for d in items]
+    vac_set = set()
+    if dog_ids:
+        vac_records = db.query(Vaccination.dog_id).filter(Vaccination.dog_id.in_(dog_ids)).distinct().all()
+        vac_set = {v[0] for v in vac_records}
+
     result = []
     for d in items:
         aid = getattr(d, 'animal_id', None) or getattr(d, 'public_code', None) or f"DOG-{d.id}"
         pcode = getattr(d, 'public_code', None) or f"PAW-{d.id:04d}"
-        vac_count = db.query(Vaccination).filter(Vaccination.dog_id == d.id).count()
 
         result.append({
             "id": d.id,
@@ -109,7 +115,7 @@ def list_dog_registry(
             "location_lat": d.location_lat or 12.9081,
             "location_lng": d.location_lng or 77.5653,
             "image_url": d.image_url or d.primary_photo or "/dogs_dataset/Copy of An_Indian_Pariah_Dog.jpg",
-            "vaccinated": vac_count > 0,
+            "vaccinated": d.id in vac_set,
             "created_by": d.created_by,
             "date": d.created_at.strftime("%Y-%m-%d") if d.created_at else "Recently",
             "created_at": d.created_at.isoformat() if d.created_at else None

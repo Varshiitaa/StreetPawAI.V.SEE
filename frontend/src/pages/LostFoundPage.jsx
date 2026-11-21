@@ -604,24 +604,24 @@ export function LostFoundPage() {
           <button
             type="button"
             onClick={() => setActiveTab('archived')}
+            title="Archived records"
             style={{
-              flex: 1,
-              padding: '12px 18px',
+              padding: '12px 14px',
               borderRadius: 'var(--radius-lg)',
               fontWeight: 700,
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               border: 'none',
               cursor: 'pointer',
-              background: activeTab === 'archived' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'transparent',
-              color: activeTab === 'archived' ? '#ffffff' : 'var(--text-muted)',
+              background: activeTab === 'archived' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+              color: activeTab === 'archived' ? '#a5b4fc' : 'var(--text-dim)',
               transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '6px'
             }}
           >
-            <Archive size={16} /> Archived / Soft Delete
+            <Archive size={14} /> Archived
           </button>
         </div>
 
@@ -996,28 +996,31 @@ export function LostFoundPage() {
                                 <Edit3 size={11} /> Edit
                               </button>
 
-                              {/* Archive (Soft Delete) - Never deletes from DB */}
+                              {/* Discrete Delete Icon Button (Invisible Soft Delete) */}
                               <button
                                 type="button"
+                                title={post.is_archived ? "Restore record" : "Remove"}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleArchivePost(post.id, !post.is_archived);
                                 }}
                                 style={{
-                                  background: 'rgba(99, 102, 241, 0.15)',
-                                  color: '#818cf8',
-                                  border: '1px solid rgba(99, 102, 241, 0.3)',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#64748b',
+                                  padding: '5px',
+                                  borderRadius: '4px',
                                   cursor: 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px'
+                                  justifyContent: 'center',
+                                  transition: 'color 0.2s ease',
+                                  opacity: 0.7
                                 }}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
                               >
-                                <Archive size={11} /> {post.is_archived ? 'Restore' : 'Archive'}
+                                <Trash2 size={13} />
                               </button>
 
                               <Button variant="secondary" size="sm" icon={Eye}>
@@ -1502,16 +1505,28 @@ export function LostFoundPage() {
                     {copiedShareId === selectedPost.id ? 'Copied Alert!' : 'Share Post'}
                   </Button>
 
-                  {/* Soft Delete / Archive Option */}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={Archive}
+                  {/* Discrete Delete Icon Button */}
+                  <button
+                    type="button"
+                    title={selectedPost.is_archived ? "Restore record" : "Remove"}
                     onClick={() => handleArchivePost(selectedPost.id, !selectedPost.is_archived)}
-                    style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748b',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0.7
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
                   >
-                    {selectedPost.is_archived ? 'Restore Active' : 'Archive (Soft Delete)'}
-                  </Button>
+                    <Trash2 size={14} />
+                  </button>
 
                   {/* Edit Option */}
                   <Button

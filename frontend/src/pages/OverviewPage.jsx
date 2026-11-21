@@ -371,7 +371,7 @@ export default function OverviewPage({ onOpenAISuite, onOpenRegistry, onOpenMap,
             <div className="cyber-card" style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
               <div style={{ width: '90px', height: '90px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
                 <img 
-                  src="/dogs_dataset/DOG_002.jpg" 
+                  src="/dogs_dataset/Copy of An_Indian_Pariah_Dog.jpg" 
                   alt="Bhaloo" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -399,7 +399,7 @@ export default function OverviewPage({ onOpenAISuite, onOpenRegistry, onOpenMap,
             <div className="cyber-card" style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
               <div style={{ width: '90px', height: '90px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
                 <img 
-                  src="/dogs_dataset/DOG_003.jpg" 
+                  src="/dogs_dataset/Copy of indian_pariah_1.jpg" 
                   alt="Sheru" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
