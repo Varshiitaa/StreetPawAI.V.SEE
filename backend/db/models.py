@@ -199,6 +199,17 @@ class ComplaintEvent(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
 
+class ComplaintRemark(Base):
+    __tablename__ = "complaint_remarks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    author_name = Column(String, nullable=True)
+    comment = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+
 class Contact(Base):
     __tablename__ = "contacts"
 

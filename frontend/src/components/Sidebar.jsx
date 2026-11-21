@@ -26,9 +26,8 @@ export default function Sidebar({ activeTab, setActiveTab, userRole, setUserRole
     { id: 'ai-suite', label: 'AI Vision Scan & Triage', icon: Scan, badge: 'AI Live' },
     { id: 'registry', label: 'Digital Animal Registry', icon: PawPrint, count: 'Shared DB' },
     { id: 'lost-found', label: 'Lost & Found Pet Matcher', icon: Search, badge: 'Smart Match' },
-    { id: 'messages', label: 'In-App Direct Messages', icon: MessageSquare, badge: 'Chat' },
+    { id: 'my-complaints', label: 'Emergency Complaints & SOS', icon: FileText, tag: 'Live Status' },
     { id: 'help-contacts', label: 'Verified Help Directory', icon: PhoneCall, tag: '24/7' },
-    { id: 'my-complaints', label: 'My Complaints & Tickets', icon: FileText, tag: 'Live Status' },
     { id: 'map', label: 'Interactive Stray Map', icon: MapPin, dot: true },
     { id: 'copilot', label: 'Pawly AI Copilot & Help', icon: Bot, tag: 'Helpline' }
   ];
@@ -36,7 +35,6 @@ export default function Sidebar({ activeTab, setActiveTab, userRole, setUserRole
   const ngoNav = [
     { id: 'ngo-dashboard', label: 'Govt & NGO Portal', icon: Database, badge: 'Central' },
     { id: 'lost-found-desk', label: 'Lost & Found Match Desk', icon: Search, badge: 'AI Match' },
-    { id: 'messages', label: 'In-App Direct Messages', icon: MessageSquare, badge: 'Chat' },
     { id: 'shelter-mgmt', label: 'Shelter & Kennels', icon: Building },
     { id: 'admin-users', label: 'Staff & Org Approvals', icon: Users, badge: 'RBAC' },
     { id: 'admin-audit', label: 'Security Audit Logs', icon: History },

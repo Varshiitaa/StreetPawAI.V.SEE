@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, status
 from sqlalchemy.orm import Session
 from db.database import get_db
-from db.models import RescueCase, Complaint, ComplaintEvent, User, AuditLog
+from db.models import RescueCase, Complaint, ComplaintEvent, User, AuditLog, ComplaintRemark
 from db.audit import audit
 from utils.auth import get_current_user, get_current_user_optional, require_role
 
@@ -446,3 +446,65 @@ def upvote_complaint(public_id: str, db: Session = Depends(get_db)):
     c.upvotes = (c.upvotes or 1) + 1
     db.commit()
     return {"success": True, "public_id": c.public_id, "upvotes": c.upvotes}
+
+
+# -----------------------------------------------------------------------------
+# 7. PUBLIC REMARKS / COMMUNITY COMMENTS FOR COMPLAINTS
+# -----------------------------------------------------------------------------
+@rescues_router.get("/{public_id}/remarks")
+@complaints_router.get("/{public_id}/remarks")
+def get_complaint_remarks(public_id: str, db: Session = Depends(get_db)):
+    c = db.query(Complaint).filter((Complaint.public_id == public_id) | (Complaint.id == (int(public_id) if public_id.isdigit() else -1))).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Complaint record not found.")
+
+    remarks = db.query(ComplaintRemark).filter(ComplaintRemark.complaint_id == c.id).order_by(ComplaintRemark.created_at.desc()).all()
+    return [{
+        "id": r.id,
+        "complaint_id": r.complaint_id,
+        "author_name": r.author_name or "Concerned Citizen",
+        "comment": r.comment,
+        "created_at": r.created_at.isoformat() if r.created_at else None
+    } for r in remarks]
+
+
+@rescues_router.post("/{public_id}/remarks")
+@complaints_router.post("/{public_id}/remarks")
+def add_complaint_remark(
+    public_id: str,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    c = db.query(Complaint).filter((Complaint.public_id == public_id) | (Complaint.id == (int(public_id) if public_id.isdigit() else -1))).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Complaint record not found.")
+
+    comment_text = data.get("comment", "").strip()
+    if not comment_text:
+        raise HTTPException(status_code=400, detail="Remark text cannot be empty.")
+
+    author = (current_user.full_name or current_user.username) if current_user else (data.get("author_name") or "Community Volunteer")
+    user_id = current_user.id if current_user else None
+
+    remark = ComplaintRemark(
+        complaint_id=c.id,
+        user_id=user_id,
+        author_name=author,
+        comment=comment_text,
+        created_at=datetime.datetime.utcnow()
+    )
+    db.add(remark)
+    db.commit()
+    db.refresh(remark)
+
+    return {
+        "status": "success",
+        "remark": {
+            "id": remark.id,
+            "complaint_id": remark.complaint_id,
+            "author_name": remark.author_name,
+            "comment": remark.comment,
+            "created_at": remark.created_at.isoformat()
+        }
+    }

@@ -15,7 +15,9 @@ import {
   ThumbsUp,
   Edit,
   Trash2,
-  X
+  X,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 
 export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
@@ -29,9 +31,60 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
   const [editForm, setEditForm] = useState({ description: '', address: '', urgency: 'HIGH' });
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Remarks / Comments State
+  const [remarks, setRemarks] = useState([]);
+  const [newRemarkText, setNewRemarkText] = useState('');
+  const [loadingRemarks, setLoadingRemarks] = useState(false);
+
   useEffect(() => {
     fetchMyComplaints();
   }, []);
+
+  useEffect(() => {
+    if (selectedTicket && selectedTicket.public_id) {
+      fetchTicketRemarks(selectedTicket.public_id);
+    }
+  }, [selectedTicket?.public_id]);
+
+  const fetchTicketRemarks = async (ticketId) => {
+    try {
+      setLoadingRemarks(true);
+      const res = await fetch(`/api/complaints/${ticketId}/remarks`);
+      if (res.ok) {
+        const data = await res.json();
+        setRemarks(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingRemarks(false);
+    }
+  };
+
+  const handlePostRemark = async (e) => {
+    e.preventDefault();
+    if (!newRemarkText.trim() || !selectedTicket) return;
+    try {
+      const token = localStorage.getItem('streetpaw_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/complaints/${selectedTicket.public_id}/remarks`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ comment: newRemarkText.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.remark) {
+          setRemarks(prev => [data.remark, ...prev]);
+        }
+        setNewRemarkText('');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchMyComplaints = async () => {
     setLoading(true);
@@ -447,13 +500,13 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
               </div>
 
               {/* NGO & Dispatch Events Timeline (TRACK) */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '18px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <ShieldCheck size={14} color="var(--accent-red)" />
                   LIVE TRACKING & ACTION TIMELINE:
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
                   {selectedTicket.events && selectedTicket.events.length > 0 ? (
                     selectedTicket.events.map((ev, i) => (
                       <div 
@@ -513,6 +566,86 @@ export default function MyComplaintsPage({ onOpenNewComplaint, currentUser }) {
                           Distress signal broadcasted to municipal animal control & registered local NGO rescue vans.
                         </p>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Public Community Comments Stream (Instagram Style) */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '220px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MessageSquare size={14} color="#3b82f6" />
+                  Community Remarks & Status Comments ({remarks.length})
+                </div>
+
+                {/* Comment input form */}
+                <form onSubmit={handlePostRemark} style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                  <input
+                    type="text"
+                    value={newRemarkText}
+                    onChange={(e) => setNewRemarkText(e.target.value)}
+                    placeholder="Add an update, sighting note, or remark..."
+                    style={{
+                      flex: 1,
+                      background: '#111827',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      color: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newRemarkText.trim()}
+                    style={{
+                      background: newRemarkText.trim() ? '#2563eb' : '#374151',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: newRemarkText.trim() ? 'pointer' : 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Send size={12} /> Post
+                  </button>
+                </form>
+
+                {/* Comments feed */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px' }}>
+                  {remarks.length > 0 ? (
+                    remarks.map((r, i) => (
+                      <div 
+                        key={r.id || i}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          borderRadius: '8px',
+                          padding: '8px 12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#93c5fd' }}>
+                            {r.author_name}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                            {r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#e5e7eb', lineHeight: 1.4 }}>
+                          {r.comment}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', textAlign: 'center', padding: '12px' }}>
+                      No community remarks yet. Share the first sighting or status update!
                     </div>
                   )}
                 </div>
