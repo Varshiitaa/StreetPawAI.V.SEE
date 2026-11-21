@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.env
+venv/
+ENV/
+*.log
+
+# Node & Frontend
+node_modules/
+.npm
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project Temporary/Cache folders
+backend/__pycache__/
+backend/*/__pycache__/
+backend/reid_cache/*.pkl
+backend/reid_cache/*.npy
+backend/uploads/
+backend/lesion.jpg
+backend/scratch_dog.png

@@ -1,0 +1,307 @@
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Badge, DataTable, Input } from '@streetpaw/ui';
+import { Users, ShieldCheck, CheckCircle2, XCircle, Search, Filter, Building2, UserCheck, AlertTriangle, Edit3, Save, X } from 'lucide-react';
+
+export function AdminUsersPage({ adminToken }) {
+  const [users, setUsers] = useState([]);
+  const [organisations, setOrganisations] = useState([]);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // User editing modal/state
+  const [editingUser, setEditingUser] = useState(null);
+  const [editRole, setEditRole] = useState('citizen');
+  const [editStatus, setEditStatus] = useState('active');
+
+  useEffect(() => {
+    fetchUsers();
+    fetchOrganisations();
+  }, [roleFilter, statusFilter]);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      let url = '/api/admin/users?';
+      if (roleFilter !== 'all') url += `role=${roleFilter}&`;
+      if (statusFilter !== 'all') url += `status=${statusFilter}&`;
+
+      const token = adminToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+      if (Array.isArray(data)) setUsers(data);
+    } catch (e) {
+      console.error('Fetch admin users error:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchOrganisations = async () => {
+    try {
+      const token = adminToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch('/api/admin/organisations', { headers });
+      const data = await res.json();
+      if (Array.isArray(data)) setOrganisations(data);
+    } catch (e) {
+      console.error('Fetch admin orgs error:', e);
+    }
+  };
+
+  const handleUpdateUserStatus = async (userId, newStatus, newRole = null) => {
+    try {
+      const payload = { status: newStatus };
+      if (newRole) payload.role = newRole;
+
+      const token = adminToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Failed to update user: ${err.detail || 'Error'}`);
+      }
+    } catch (e) {
+      console.error('Update user status error:', e);
+    }
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!editingUser) return;
+    try {
+      const token = adminToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          role: editRole,
+          status: editStatus
+        })
+      });
+      if (res.ok) {
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Failed to save edit: ${err.detail || 'Error'}`);
+      }
+    } catch (e) {
+      console.error('Save edit user error:', e);
+    }
+  };
+
+  const handleVerifyOrg = async (orgId, isVerified) => {
+    try {
+      const token = adminToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const res = await fetch(`/api/admin/organisations/${orgId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ verified: isVerified })
+      });
+      if (res.ok) {
+        fetchOrganisations();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Failed to verify org: ${err.detail || 'Error'}`);
+      }
+    } catch (e) {
+      console.error('Verify org error:', e);
+    }
+  };
+
+  const filteredUsers = users.filter(u =>
+    (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const columns = [
+    { title: 'User ID', key: 'id', render: (val) => <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>#{val}</span> },
+    { title: 'Username & Name', key: 'username', render: (val, row) => (
+      <div>
+        <div style={{ fontWeight: 700 }}>@{val}</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{row.full_name}</div>
+      </div>
+    )},
+    { title: 'Email & Phone', key: 'email', render: (val, row) => (
+      <div style={{ fontSize: '0.85rem' }}>
+        <div>{val}</div>
+        <div style={{ color: 'var(--text-muted)' }}>{row.phone || 'No phone'}</div>
+      </div>
+    )},
+    { title: 'Role', key: 'role', render: (val) => <Badge variant={val === 'admin' ? 'critical' : 'brand'}>{val.toUpperCase()}</Badge> },
+    { title: 'Organisation', key: 'organisation_name', render: (val) => val || '—' },
+    { title: 'Status', key: 'status', render: (val) => <Badge variant={val === 'active' ? 'normal' : val === 'pending' ? 'pending' : 'critical'}>{val.toUpperCase()}</Badge> },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, row) => (
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {row.status === 'pending' && (
+            <Button variant="emerald" size="sm" icon={UserCheck} onClick={() => handleUpdateUserStatus(row.id, 'active')}>
+              Approve
+            </Button>
+          )}
+          {row.status === 'active' && row.role !== 'admin' && (
+            <Button variant="ghost" size="sm" onClick={() => handleUpdateUserStatus(row.id, 'suspended')}>
+              Suspend
+            </Button>
+          )}
+          {row.status === 'suspended' && (
+            <Button variant="secondary" size="sm" onClick={() => handleUpdateUserStatus(row.id, 'active')}>
+              Unsuspend
+            </Button>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            icon={Edit3}
+            onClick={() => {
+              setEditingUser(row);
+              setEditRole(row.role);
+              setEditStatus(row.status);
+            }}
+          >
+            Edit
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div>
+        <Badge variant="critical">SYSTEM ADMIN CONTROL CENTER</Badge>
+        <h2 style={{ fontSize: '1.85rem', fontWeight: 800, marginTop: '4px' }}>Users & Organisations Management</h2>
+        <p style={{ color: 'var(--text-muted)' }}>Approve staff requests, manage user roles, suspend accounts, and verify organisations.</p>
+      </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#0f172a', border: '1px solid var(--border-medium)', borderRadius: '14px', width: '90%', maxWidth: '440px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
+                Edit User @{editingUser.username}
+              </h3>
+              <button onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>System Role</label>
+                <select 
+                  value={editRole} 
+                  onChange={(e) => setEditRole(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: '#090d16', border: '1px solid var(--border-color)', color: '#fff' }}
+                >
+                  <option value="citizen">Citizen</option>
+                  <option value="ngo_staff">NGO Staff</option>
+                  <option value="govt_official">Govt Official</option>
+                  <option value="volunteer">Volunteer</option>
+                  <option value="admin">System Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Account Status</label>
+                <select 
+                  value={editStatus} 
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: '#090d16', border: '1px solid var(--border-color)', color: '#fff' }}
+                >
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <Button variant="ghost" onClick={() => setEditingUser(null)}>Cancel</Button>
+                <Button variant="emerald" icon={Save} onClick={handleSaveEditUser}>Save Changes</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Organisations Verification Section */}
+      <Card variant="glass">
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Building2 color="var(--primary-coral)" /> Registered Organisations Directory ({organisations.length})
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {organisations.map((org) => (
+            <div key={org.id} style={{ padding: '16px', background: 'rgba(15, 21, 35, 0.8)', borderRadius: '12px', border: '1px solid var(--border-medium)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>{org.name}</span>
+                <Badge variant={org.verified ? 'normal' : 'pending'}>{org.type}</Badge>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>📍 {org.city}, {org.state}</div>
+              <Button
+                variant={org.verified ? 'ghost' : 'emerald'}
+                size="sm"
+                onClick={() => handleVerifyOrg(org.id, !org.verified)}
+              >
+                {org.verified ? 'Verified ✓' : 'Verify Organisation'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Users Table */}
+      <Card variant="glass">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ maxWidth: '340px', width: '100%' }}>
+            <Input
+              placeholder="Search by username, name, or email..."
+              icon={Search}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-input)', color: '#fff' }}>
+              <option value="all">All Roles</option>
+              <option value="citizen">Citizen</option>
+              <option value="ngo_staff">NGO Staff</option>
+              <option value="govt_official">Govt Official</option>
+              <option value="volunteer">Volunteer</option>
+              <option value="admin">Admin</option>
+            </select>
+
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-input)', color: '#fff' }}>
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending">Pending</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+
+        <DataTable columns={columns} data={filteredUsers} keyField="id" />
+      </Card>
+    </div>
+  );
+}
