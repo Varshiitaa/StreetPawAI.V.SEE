@@ -971,7 +971,7 @@ export default function AIModularSuitePage({ onRegisterNewAnimal, prefilledAnima
               <div>&gt; [12ms] Bounding box segmentation normalized</div>
               <div>&gt; [28ms] Active Engine: {activeEngine.toUpperCase()}</div>
               <div>&gt; [46ms] Animal ID bound: {currentAnimalId}</div>
-              <div>&gt; [72ms] Federated Bio-Sync node online (0.4s lag)</div>
+              <div>&gt; [72ms] Federated Bio-Sync node online (Real-time Synced)</div>
             </div>
           </div>
         </div>

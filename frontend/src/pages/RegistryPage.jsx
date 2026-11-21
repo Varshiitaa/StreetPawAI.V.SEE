@@ -614,7 +614,7 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
           <span>• Connected Hubs: CUPA Bengaluru, CARE Animal Rescue, Voice of Strays, BBMP Animal Control</span>
         </div>
         <div style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-          STATUS: CONNECTED & SYNCED (0.4S LAG)
+          STATUS: CONNECTED & SYNCED (REAL-TIME 0ms)
         </div>
       </div>
     
