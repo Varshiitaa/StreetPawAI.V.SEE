@@ -58,6 +58,8 @@ dogs_dataset_dir = os.path.join(os.path.dirname(__file__), 'dogs_dataset')
 if os.path.exists(dogs_dataset_dir):
     app.mount("/dogs_dataset", StaticFiles(directory=dogs_dataset_dir), name="dogs_dataset")
 
+from services.supabase_storage import upload_file_to_supabase
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename:
@@ -76,7 +78,13 @@ async def upload_file(file: UploadFile = File(...)):
             f.write(contents)
     except Exception:
         pass
-    return {"url": f"/uploads/{unique_name}", "filename": unique_name}
+
+    # Upload directly to Supabase Storage as primary cloud URL
+    content_type = file.content_type or "image/jpeg"
+    supabase_url = upload_file_to_supabase(contents, f"uploads/{unique_name}", content_type)
+    final_url = supabase_url if supabase_url else f"/uploads/{unique_name}"
+    
+    return {"url": final_url, "filename": unique_name, "supabase_url": supabase_url}
 
 app.include_router(ai_router)
 app.include_router(rescues_router)
