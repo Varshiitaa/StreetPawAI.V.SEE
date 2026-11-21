@@ -440,6 +440,27 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
                     Bio-Lock {bioMatch}%
                   </span>
 
+                  {/* Disease Assessment Pill Banner */}
+                  {dog.disease_name && dog.disease_name !== 'Normal / No visible disease' && dog.disease_name !== 'Normal' && (
+                    <span style={{
+                      position: 'absolute',
+                      bottom: '10px',
+                      left: '10px',
+                      background: 'rgba(239, 68, 68, 0.85)',
+                      backdropFilter: 'blur(6px)',
+                      color: '#ffffff',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(254, 202, 202, 0.5)',
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase'
+                    }}>
+                      ⚠️ {dog.disease_name} ({Math.round(dog.disease_confidence || 88)}%)
+                    </span>
+                  )}
+
                   {/* Favorite / Watchlist icon */}
                   <button style={{
                     position: 'absolute',
@@ -505,6 +526,15 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
                     <span style={{ fontSize: '10px', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
                       Sterilised: {dog.sterilised || 'yes'}
                     </span>
+                    {dog.disease_name && dog.disease_name !== 'Normal / No visible disease' && dog.disease_name !== 'Normal' ? (
+                      <span style={{ fontSize: '10px', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        {dog.disease_name}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '10px', color: '#86efac', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        Healthy
+                      </span>
+                    )}
                   </div>
 
                   {/* Vaccination Tag */}
