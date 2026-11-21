@@ -138,6 +138,20 @@ GUIDED_DISTRESS_QUESTIONS = [
             "6. FRACTURES OR HIT-AND-RUN: Minimize movement. Slide a flat rigid wooden board or taut blanket under the dog to transport without twisting the spinal column.",
             "7. BROADCAST A COMMUNITY DISTRESS SOS: Hit the red 'REGISTER COMPLAINT / SOS' button on StreetPaw AI. Your ticket is dispatched to active field rescue units and nighttime patrol volunteers."
         ]
+    },
+    {
+        "id": "bite_no_hospital",
+        "question": "What precautions should I take if a dog bites and no hospitals are nearby?",
+        "category": "Remote Bite First-Aid & Rabies Prevention",
+        "steps": [
+            "1. VIGOROUS FLUSHING (MOST CRITICAL STEP): Wash the bite wound immediately under running tap water with ordinary bathing soap or detergent for a FULL 15 MINUTES. The soap dissolves the lipid envelope of the Rabies virus, washing away >90% of viral load.",
+            "2. APPLY ANTISEPTIC: After washing thoroughly, apply Povidone-Iodine (Betadine), Dettol/Savlon, or 70% surgical spirit generously into the wound to neutralize remaining virus particles.",
+            "3. STRICT PROHIBITION ON HOME REMEDIES: NEVER put turmeric, red chili powder, lime (chuna), soil, kerosene, or plant poultices on the bite—they trap bacteria and cause severe sepsis.",
+            "4. DO NOT BANDAGE TIGHTLY OR SUTURE: Never tie tight bandages or stitch the bite closed. Rabies is an anaerobic virus; airtight covering drives it deeper into peripheral nerves. Leave it open to breathe or cover very loosely with sterile gauze.",
+            "5. CONTROL SEVERE BLEEDING: If an artery or large vein is punctured, hold clean pressure with sterile cloth without applying a tourniquet.",
+            "6. 24-48 HOUR TRANSIT WINDOW FOR VACCINE: Anti-Rabies Vaccination (ARV) must be administered as early as possible. Plan transport to the nearest government Primary Health Center (PHC) or Taluk hospital where ARV is free. For Category III deep bleeding bites, Rabies Immunoglobulin (RIG) is also mandatory.",
+            "7. OBSERVE THE DOG (IF LOCAL): If the stray or pet is known, observe it for 10-14 days. If it remains alive and healthy after 10 days, transmission risk from that bite is essentially zero (still complete your ARV schedule)."
+        ]
     }
 ]
 
@@ -212,7 +226,17 @@ def chat_query(
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    # 1. First check high-priority emergency and specific queries (e.g. closed hospitals)
+    # 1. First check high-priority emergency and specific queries (e.g. bite with no hospital, closed hospitals)
+    if ("bite" in query or "bitten" in query) and any(phrase in query for phrase in ["no hospital", "hospitals closed", "no clinic", "nearby", "far", "remote", "precaution"]):
+        for q in GUIDED_DISTRESS_QUESTIONS:
+            if q["id"] == "bite_no_hospital":
+                return {
+                    "success": True,
+                    "reply": "\n".join(q["steps"]),
+                    "category": q["category"],
+                    "is_guided": True
+                }
+
     if any(phrase in query for phrase in ["closed", "no vet", "no hospital", "night emergency", "after hours", "precaution"]):
         for q in GUIDED_DISTRESS_QUESTIONS:
             if q["id"] == "hospitals_closed":
