@@ -40,25 +40,110 @@ def text_similarity(str1: Optional[str], str2: Optional[str]) -> float:
     union = w1.union(w2)
     return len(intersection) / len(union)
 
-# Helper: Calculate smart match score between two posts
-def calculate_match_score(post1: LostFoundPost, post2: LostFoundPost) -> float:
-    # 1. Distance score (max 15 km)
-    dist = haversine_distance(post1.lat, post1.lng, post2.lat, post2.lng)
-    dist_score = max(0.0, 1.0 - (dist / 15.0)) if dist <= 15.0 else 0.0
+# Global lazy cache for Re-ID model and embeddings
+_REID_MODEL = None
+_REID_TRANSFORM = None
+_PHOTO_EMB_CACHE = {}
 
-    # 2. Text/Breed/Colour similarity
+def get_reid_components():
+    global _REID_MODEL, _REID_TRANSFORM
+    if _REID_MODEL is None:
+        try:
+            import os
+            from animal_reid import load_model, build_transform, DEFAULT_IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD, CHECKPOINT_PATH
+            if os.path.exists(CHECKPOINT_PATH):
+                _REID_MODEL, _ = load_model(CHECKPOINT_PATH, 'cpu')
+                _REID_TRANSFORM = build_transform(DEFAULT_IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD)
+        except Exception as e:
+            print(f"[Re-ID Warning] Could not load OSNet: {e}")
+    return _REID_MODEL, _REID_TRANSFORM
+
+def compute_visual_similarity(photo1: Optional[str], photo2: Optional[str]) -> float:
+    if not photo1 or not photo2:
+        return 0.50
+    # Exact same URL or local path => 100% match
+    if photo1.strip().lower() == photo2.strip().lower():
+        return 1.00
+
+    # Extract base names or IDs from Unsplash / upload paths
+    # If the user uploaded or referenced the exact same photo ID
+    p1_key = photo1.split('?')[0].strip().lower()
+    p2_key = photo2.split('?')[0].strip().lower()
+    if p1_key == p2_key:
+        return 1.00
+
+    try:
+        import io, urllib.request, os
+        from PIL import Image
+        import numpy as np
+        from animal_reid import extract_embedding
+
+        model, transform = get_reid_components()
+        if not model or not transform:
+            return 0.50
+
+        def get_emb(url: str):
+            if url in _PHOTO_EMB_CACHE:
+                return _PHOTO_EMB_CACHE[url]
+            img = None
+            if url.startswith('http://') or url.startswith('https://'):
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                resp = urllib.request.urlopen(req, timeout=4)
+                img = Image.open(io.BytesIO(resp.read())).convert('RGB')
+            else:
+                local_path = url.lstrip('/')
+                for base in ['frontend/public', 'frontend', '.']:
+                    cand = os.path.join(base, local_path)
+                    if os.path.exists(cand):
+                        img = Image.open(cand).convert('RGB')
+                        break
+            if img:
+                tensor = transform(img).unsqueeze(0)
+                emb = extract_embedding(model, tensor, 'cpu')[0]
+                _PHOTO_EMB_CACHE[url] = emb
+                return emb
+            return None
+
+        emb1 = get_emb(photo1)
+        emb2 = get_emb(photo2)
+        if emb1 is not None and emb2 is not None:
+            norm1 = np.linalg.norm(emb1)
+            norm2 = np.linalg.norm(emb2)
+            if norm1 > 0 and norm2 > 0:
+                cos_sim = float(np.dot(emb1, emb2) / (norm1 * norm2))
+                return max(0.0, min(1.0, cos_sim))
+    except Exception as e:
+        print(f"[Visual Sim Exception] {e}")
+
+    return 0.40
+
+# Helper: Calculate smart match score between two posts (Visual Re-ID heavy)
+def calculate_match_score(post1: LostFoundPost, post2: LostFoundPost) -> float:
+    # 1. Visual Biometric Re-ID Similarity (55% of the score)
+    vis_sim = compute_visual_similarity(post1.photo, post2.photo)
+
+    # 2. Distance score (max 25 km, 20% weight)
+    dist = haversine_distance(post1.lat, post1.lng, post2.lat, post2.lng)
+    dist_score = max(0.0, 1.0 - (dist / 25.0)) if dist <= 25.0 else 0.0
+
+    # 3. Text/Breed/Colour similarity (15% weight)
     text1 = f"{post1.breed or ''} {post1.colour_markings or ''} {post1.dog_name or ''}"
     text2 = f"{post2.breed or ''} {post2.colour_markings or ''} {post2.dog_name or ''}"
     txt_score = text_similarity(text1, text2)
 
-    # 3. Date window similarity (max 30 days)
+    # 4. Date window similarity (max 45 days, 10% weight)
     d1 = post1.event_date or post1.created_at or datetime.datetime.utcnow()
     d2 = post2.event_date or post2.created_at or datetime.datetime.utcnow()
     days_diff = abs((d1 - d2).days)
-    time_score = max(0.0, 1.0 - (days_diff / 30.0)) if days_diff <= 30 else 0.0
+    time_score = max(0.0, 1.0 - (days_diff / 45.0)) if days_diff <= 45 else 0.0
 
-    # Weighted composite score
-    total = (dist_score * 0.45) + (txt_score * 0.35) + (time_score * 0.20)
+    # If the dog photo is identical (same dog picture), score must be >= 95%
+    if vis_sim >= 0.95:
+        total = 0.95 + (dist_score * 0.05)
+    else:
+        # Weighted composite score: visual embedding dominates
+        total = (vis_sim * 0.55) + (dist_score * 0.20) + (txt_score * 0.15) + (time_score * 0.10)
+
     return round(total * 100.0, 1)
 
 def format_post_dict(post: LostFoundPost, db: Session, viewer_user: Optional[User] = None) -> dict:
