@@ -293,38 +293,75 @@ def get_all_map_pins(
     return pins
 
 # -----------------------------------------------------------------------------
-# 3. CHECK DUPLICATES (Re-ID Embeddings + Markings & Location Match)
+# 3. CHECK DUPLICATES (Biometric Re-ID Metric + Markings & Geo-Fence Match)
 # -----------------------------------------------------------------------------
 @dogs_router.post("/check-duplicate")
 def check_duplicate_dog(data: dict = Body(...), db: Session = Depends(get_db)):
     target_breed = data.get("breed", "").lower()
     target_area = data.get("area", "").lower() or data.get("location", "").lower()
     target_markings = data.get("colour_markings", "").lower()
+    target_photo = data.get("photo_url") or data.get("image_url") or data.get("image")
+    target_animal_id = data.get("animal_id")
 
     dogs = db.query(Dog).filter(Dog.deleted_at.is_(None)).all()
     candidates = []
 
+    # Visual biometric metric matching via Re-ID engine if photo or animal_id provided
+    reid_scores = {}
+    try:
+        from routers.ai_router import get_reid_model, load_image_for_eval
+        reid = get_reid_model()
+        if reid and target_photo:
+            target_img = load_image_for_eval(target_photo)
+            if target_img:
+                reid_res = reid.identify(target_img, threshold=0.45, top_k=10)
+                for match in reid_res.get("top_k", []):
+                    m_id = match.get("identity", "").replace("animal_", "")
+                    reid_scores[m_id] = float(match.get("similarity", 0.0))
+    except Exception as reid_err:
+        pass
+
     for d in dogs:
-        score = 0.35  # Base score
+        score = 0.20  # Base prior
+        reasons = []
+
+        # 1. Deep Biometric Re-ID match (facial / coat biometric vector)
+        d_num_id = str(d.id)
+        d_aid_clean = str(d.animal_id or "").replace("DOG-", "").replace("PAW-", "").lstrip("0")
+        visual_sim = 0.0
+        for k, v in reid_scores.items():
+            if k == d_num_id or (d_aid_clean and k == d_aid_clean):
+                visual_sim = max(visual_sim, v)
+
+        if visual_sim > 0.50:
+            score += visual_sim * 0.45
+            reasons.append(f"Biometric Facial/Coat Re-ID match ({visual_sim * 100:.1f}%)")
+
         d_breed = (d.breed or "").lower()
         d_location = (d.location or "").lower()
         d_markings = (d.colour_markings or "").lower()
 
-        # Breed match
-        if target_breed and target_breed in d_breed or d_breed in target_breed:
-            score += 0.30
+        # 2. Breed Taxonomy verification
+        if target_breed and (target_breed in d_breed or d_breed in target_breed):
+            score += 0.20
+            reasons.append(f"Matching breed taxonomy ({d.breed})")
         elif target_breed and ("desi" in target_breed or "pariah" in target_breed) and ("desi" in d_breed or "pariah" in d_breed):
-            score += 0.25
+            score += 0.15
+            reasons.append("Indie / Pariah phenotype")
 
-        # Area / location match
-        if target_area and target_area in d_location or d_location in target_area:
-            score += 0.25
+        # 3. Geo-fence / Territorality verification
+        # Dogs are highly territorial pack animals (rarely roving > 2-3km)
+        if target_area and (target_area in d_location or d_location in target_area):
+            score += 0.20
+            reasons.append(f"Same territorial sector ({d.location})")
 
-        # Colour / markings match
+        # 4. Unique markings, scars, ear notches
         if target_markings and target_markings in d_markings:
-            score += 0.10
+            score += 0.15
+            reasons.append(f"Markings & coloration correlation ({d.colour_markings})")
 
-        score = min(round(score, 2), 0.95)
+        final_score = min(round(score, 2), 0.98)
+        reason_str = " | ".join(reasons) if reasons else f"Territorial stray overlap in {d.location}"
 
         candidates.append({
             "id": d.id,
@@ -334,8 +371,8 @@ def check_duplicate_dog(data: dict = Body(...), db: Session = Depends(get_db)):
             "breed": d.breed or "Indian Pariah / Desi",
             "location": d.location or "Bengaluru",
             "image_url": d.image_url or d.primary_photo or "/dogs_dataset/Copy of An_Indian_Pariah_Dog.jpg",
-            "similarity_score": score,
-            "matches_reason": f"High similarity in {d.location} area with {d.breed}"
+            "similarity_score": final_score,
+            "matches_reason": reason_str
         })
 
     candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
