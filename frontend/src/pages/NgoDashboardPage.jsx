@@ -99,34 +99,60 @@ export default function NgoDashboardPage() {
   // Update complaint status (Dispatch, Approve, Resolve, Cancel)
   const handleUpdateComplaintStatus = async (publicId, newStatus) => {
     try {
+      // Optimistically update UI so the change is instant
+      setComplaints(prev => prev.map(c => {
+        if (c.public_id === publicId || c.ticket_id === publicId) {
+          return { ...c, status: newStatus.toUpperCase() };
+        }
+        return c;
+      }));
+
+      const token = localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`/api/complaints/${publicId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
         fetchSharedData();
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        alert(`Failed to update status: ${errJson.detail || 'Error'}`);
+        fetchSharedData();
       }
     } catch (err) {
       console.error(err);
+      fetchSharedData();
     }
   };
 
   // Delete complaint ticket
   const handleDeleteComplaint = async (publicId) => {
-    if (!window.confirm(`Are you sure you want to delete complaint ticket ${publicId}?`)) return;
+    if (!window.confirm(`Are you sure you want to delete complaint ticket ${publicId}? This will remove it permanently from Supabase.`)) return;
     try {
+      // Optimistically remove from state
+      setComplaints(prev => prev.filter(c => c.public_id !== publicId && c.ticket_id !== publicId));
+
+      const token = localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`/api/complaints/${publicId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: headers
       });
       if (res.ok) {
-        alert(`Complaint ${publicId} deleted successfully.`);
         fetchSharedData();
       } else {
-        alert('Could not delete complaint.');
+        alert('Could not delete complaint from database.');
+        fetchSharedData();
       }
     } catch (err) {
       console.error(err);
+      fetchSharedData();
     }
   };
 

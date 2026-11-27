@@ -395,16 +395,16 @@ def update_complaint_status(
     db.add(ev)
     db.commit()
 
-    if current_user:
-        audit(
-            db=db,
-            actor_id=current_user.id,
-            action="update_complaint",
-            entity_type="complaint",
-            entity_id=c.public_id,
-            before={"status": before_status},
-            after={"status": c.status, "note": note_msg}
-        )
+    # Always log to audit_log table in Supabase so NGO & Admins can inspect and verify
+    audit(
+        db=db,
+        actor_id=actor_id,
+        action=f"status_change_{c.status}",
+        entity_type="complaint",
+        entity_id=c.public_id,
+        before={"status": before_status},
+        after={"status": c.status, "note": note_msg}
+    )
 
     return {
         "success": True,
@@ -439,8 +439,8 @@ def delete_complaint(
     db.delete(c)
     db.commit()
 
-    if current_user:
-        audit(db=db, actor_id=current_user.id, action="delete_complaint", entity_type="complaint", entity_id=public_id)
+    actor_id = current_user.id if current_user else 1
+    audit(db=db, actor_id=actor_id, action="delete_complaint", entity_type="complaint", entity_id=public_id)
 
     return {"status": "success", "message": f"Complaint {public_id} deleted."}
 
