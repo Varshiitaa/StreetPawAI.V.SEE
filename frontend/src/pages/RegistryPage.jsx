@@ -30,11 +30,12 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
   const [editPhotoFile, setEditPhotoFile] = useState(null);
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [dogToDelete, setDogToDelete] = useState(null);
   const editFileInputRef = React.useRef(null);
 
-  const handleDeleteDog = async (dog) => {
+  const confirmDeleteDog = async (dog) => {
     const id = dog.animal_id || dog.public_code || dog.id;
-    if (!window.confirm(`Are you sure you want to delete dog record ${id}?`)) return;
     try {
       const token = localStorage.getItem('streetpaw_token');
       const headers = {};
@@ -46,15 +47,24 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
       });
       if (res.ok) {
         setDogs(prev => prev.filter(d => d.id !== dog.id && d.animal_id !== id && d.public_code !== id));
-        alert(`Dog record ${id} deleted successfully.`);
+        setToastMessage({ type: 'success', text: `✓ Animal record ${id} removed from Registry & Database.` });
+        setTimeout(() => setToastMessage(null), 5000);
       } else {
         const errJson = await res.json().catch(() => ({}));
-        alert(`Failed to delete dog record: ${errJson.detail || res.statusText || 'Access denied'}`);
+        setToastMessage({ type: 'error', text: `Failed to delete record: ${errJson.detail || res.statusText || 'Access denied'}` });
+        setTimeout(() => setToastMessage(null), 5000);
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting dog record: " + err.message);
+      setToastMessage({ type: 'error', text: "Error deleting dog record: " + err.message });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setDogToDelete(null);
     }
+  };
+
+  const handleDeleteDog = (dog) => {
+    setDogToDelete(dog);
   };
 
   const handleSaveEdit = async (e) => {
@@ -102,18 +112,21 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
         })
       });
       if (res.ok) {
-        alert("Dog record updated successfully!");
+        setToastMessage({ type: 'success', text: `✓ Dog record ${id} successfully updated in database & audit logs!` });
+        setTimeout(() => setToastMessage(null), 5000);
         setEditingDog(null);
         setEditPhotoFile(null);
         setEditPhotoPreview(null);
         fetchDogs();
       } else {
         const errJson = await res.json().catch(() => ({}));
-        alert(`Failed to update dog record: ${errJson.detail || res.statusText || 'Error'}`);
+        setToastMessage({ type: 'error', text: `Failed to update dog record: ${errJson.detail || res.statusText || 'Error'}` });
+        setTimeout(() => setToastMessage(null), 5000);
       }
     } catch (err) {
       console.error(err);
-      alert("Error updating dog: " + err.message);
+      setToastMessage({ type: 'error', text: "Error updating dog: " + err.message });
+      setTimeout(() => setToastMessage(null), 5000);
     } finally {
       setEditSubmitting(false);
     }
@@ -193,6 +206,113 @@ export default function RegistryPage({ onSelectAnimal, onOpenRegisterModal, user
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div style={{
+          padding: '12px 18px',
+          borderRadius: '10px',
+          background: toastMessage.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          border: `1px solid ${toastMessage.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: toastMessage.type === 'success' ? '#a7f3d0' : '#fca5a5',
+          fontSize: '0.9rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px'
+        }}>
+          <span>{toastMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 900 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal for Deletion */}
+      {dogToDelete && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0d131f',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '16px',
+            padding: '28px',
+            maxWidth: '440px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px'
+            }}>
+              <Trash2 size={26} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
+              Confirm Animal Deletion
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '22px', lineHeight: 1.5 }}>
+              Are you sure you want to delete dog record <strong style={{ color: '#fff' }}>{dogToDelete.animal_id || dogToDelete.public_code || dogToDelete.id}</strong> ({dogToDelete.name || 'Unnamed'})? This will update the Supabase database and audit logs immediately.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setDogToDelete(null)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#cbd5e1',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteDog(dogToDelete)}
+                style={{
+                  padding: '10px 22px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Trash2 size={15} /> Yes, Delete Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div>
