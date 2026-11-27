@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge } from '@streetpaw/ui';
-import { HeartHandshake, Sparkles, Check, X, Phone, Lock, Search, MapPin, Calendar, Award, Edit3, UserCheck } from 'lucide-react';
+import { HeartHandshake, Sparkles, Check, X, Phone, Lock, Search, MapPin, Calendar, Award, Edit3, UserCheck, Trash2 } from 'lucide-react';
 
 export function LostFoundDeskPage({ authToken, searchQuery }) {
   const [activeTab, setActiveTab] = useState('suggested'); // 'suggested' | 'lost' | 'found'
@@ -8,6 +8,7 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
   const [isLoading, setIsLoading] = useState(true);
   const [editingMatch, setEditingMatch] = useState(null);
   const [editStatusValue, setEditStatusValue] = useState('suggested');
+  const [matchToDelete, setMatchToDelete] = useState(null);
 
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -95,13 +96,42 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
         headers
       });
       if (res.ok) {
+        setToastMessage({ type: 'success', text: "Match rejected successfully." });
+        setTimeout(() => setToastMessage(null), 4000);
         fetchPosts();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Failed: ${err.detail || 'Could not reject'}`);
+        setToastMessage({ type: 'error', text: `Failed: ${err.detail || 'Could not reject'}` });
+        setTimeout(() => setToastMessage(null), 4000);
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const confirmDeleteMatch = async (matchId) => {
+    try {
+      const token = authToken || localStorage.getItem('streetpaw_token') || localStorage.getItem('ngo_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`/api/lost-found/matches/${matchId}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) {
+        setToastMessage({ type: 'success', text: `✓ Match pair #${matchId} deleted permanently from database.` });
+        setTimeout(() => setToastMessage(null), 5000);
+        fetchPosts();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setToastMessage({ type: 'error', text: `Failed to delete match: ${err.detail || 'Server error'}` });
+        setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch (err) {
+      console.error(err);
+      setToastMessage({ type: 'error', text: 'Network error deleting match.' });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setMatchToDelete(null);
     }
   };
 
@@ -166,6 +196,87 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL FOR DELETING A MATCH */}
+      {matchToDelete && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0d131f',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '16px',
+            padding: '28px',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px'
+            }}>
+              <Trash2 size={26} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
+              Delete Match Comparison?
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '22px', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete this match pair (<strong style={{ color: '#fff' }}>Post #{matchToDelete.postA?.id}</strong> vs <strong style={{ color: '#fff' }}>Post #{matchToDelete.matchedPostId}</strong>)? This removes it from the central database and audit log.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setMatchToDelete(null)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#cbd5e1',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteMatch(matchToDelete.matchId)}
+                style={{
+                  padding: '10px 22px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Trash2 size={15} /> Yes, Delete Match
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -382,7 +493,20 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={Trash2}
+                        onClick={() => setMatchToDelete(m)}
+                        style={{
+                          color: '#f87171',
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                          background: 'rgba(239, 68, 68, 0.08)'
+                        }}
+                      >
+                        Delete Match
+                      </Button>
                       {m.status !== 'rejected' && (
                         <Button size="sm" variant="critical" icon={X} onClick={() => handleRejectMatch(m.matchId)}>
                           Reject Match

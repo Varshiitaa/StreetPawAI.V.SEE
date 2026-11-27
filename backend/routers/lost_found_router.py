@@ -596,6 +596,30 @@ def confirm_match(
     return {"status": "success", "message": "Match confirmed! Phone details unlocked for both parties.", "match_id": match_id}
 
 
+@lost_found_router.delete("/matches/{match_id}")
+def delete_match_pair(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    match = db.query(LostFoundMatch).filter(LostFoundMatch.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match pair not found")
+
+    actor_id = current_user.id if current_user else 1
+
+    # Cascade delete match opinions first if any exist
+    db.query(MatchOpinion).filter(MatchOpinion.match_id == match_id).delete(synchronize_session=False)
+    
+    # Delete match row
+    db.delete(match)
+    db.commit()
+
+    audit(db, action="delete_match", entity_type="lost_found_match", entity_id=str(match_id), actor_id=actor_id)
+
+    return {"status": "success", "message": f"Match pair #{match_id} deleted permanently from database.", "match_id": match_id}
+
+
 @lost_found_router.post("/matches/{match_id}/reject")
 def reject_match(
     match_id: int,
