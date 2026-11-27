@@ -328,6 +328,30 @@ async def classify_breed_endpoint(
     if pil_image is None:
         raise HTTPException(status_code=400, detail="No image provided. Please upload a photo or provide a valid animal_id.")
 
+    # Guard: check species if image is clearly a non-dog (e.g. Cat)
+    active_yolo = get_yolo_model()
+    if active_yolo is not None:
+        try:
+            y_res = active_yolo(pil_image, conf=0.35, verbose=False)[0]
+            for box in y_res.boxes:
+                cls_id = int(box.cls[0].item())
+                c_conf = float(box.conf[0].item())
+                if cls_id == 15 and c_conf >= 0.40:  # Cat
+                    return {
+                        "success": True,
+                        "animal_id": animal_id or "Unassigned",
+                        "breed": "Feline (Domestic Cat)",
+                        "confidence": round(c_conf * 100, 1),
+                        "top3": [
+                            {"breed": "Feline (Domestic Cat)", "confidence": round(c_conf * 100, 1)},
+                            {"breed": "Non-canine animal", "confidence": 10.0}
+                        ],
+                        "model_ready": True,
+                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                    }
+        except Exception as e:
+            pass
+
     try:
         result = classify_breed(pil_image, use_tta=True)
 
@@ -374,6 +398,31 @@ async def classify_disease_endpoint(
 
     if pil_image is None:
         raise HTTPException(status_code=400, detail="No image provided. Please upload a photo or provide a valid animal_id.")
+
+    # Guard: check species if image is clearly a non-dog (e.g. Cat)
+    active_yolo = get_yolo_model()
+    if active_yolo is not None:
+        try:
+            y_res = active_yolo(pil_image, conf=0.35, verbose=False)[0]
+            for box in y_res.boxes:
+                cls_id = int(box.cls[0].item())
+                c_conf = float(box.conf[0].item())
+                if cls_id == 15 and c_conf >= 0.40:  # Cat
+                    return {
+                        "success": True,
+                        "animal_id": animal_id or "Unassigned",
+                        "disease": "Non-canine animal (Cat detected) — Canine dermatological model bypassed.",
+                        "confidence": round(c_conf * 100, 1),
+                        "top2": [
+                            {"disease": "Non-canine animal (Cat detected)", "confidence": round(c_conf * 100, 1)},
+                            {"disease": "Normal / No visible disease", "confidence": 0.0}
+                        ],
+                        "status": "normal",
+                        "model_ready": True,
+                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                    }
+        except Exception as e:
+            pass
 
     try:
         result = classify_disease(pil_image, use_tta=True)
