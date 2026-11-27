@@ -51,23 +51,24 @@ export default function NgoDashboardPage() {
   const fetchSharedData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch dogs from central SQLite database
-      const resDogs = await fetch('/api/dogs/?limit=200');
-      if (resDogs.ok) {
+      // Parallel fast fetching for instantaneous loading
+      const [resDogs, resComplaints, resAnalytics] = await Promise.all([
+        fetch('/api/dogs/?limit=200').catch(() => null),
+        fetch('/api/complaints/').catch(() => null),
+        fetch('/api/analytics/charts').catch(() => null)
+      ]);
+
+      if (resDogs && resDogs.ok) {
         const dData = await resDogs.json();
         setDogs(dData.items || dData.dogs || []);
       }
 
-      // 2. Fetch complaints / distress signals
-      const resComplaints = await fetch('/api/complaints/');
-      if (resComplaints.ok) {
+      if (resComplaints && resComplaints.ok) {
         const cData = await resComplaints.json();
         setComplaints(cData || []);
       }
 
-      // 3. Fetch real analytics computed directly from the dataset
-      const resAnalytics = await fetch('/api/analytics/charts');
-      if (resAnalytics.ok) {
+      if (resAnalytics && resAnalytics.ok) {
         const aData = await resAnalytics.json();
         setAnalyticsData(aData);
       }
@@ -389,8 +390,45 @@ export default function NgoDashboardPage() {
         </button>
       </div>
 
-      {/* TAB 1: CENTRAL ANIMAL DATABASE (EDIT, DELETE, ADD, APPROVE) */}
-      {activeTab === 'database' && (
+      {/* Prominent High-Visibility Loading State */}
+      {loading ? (
+        <div style={{
+          padding: '80px 20px',
+          textAlign: 'center',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderRadius: '16px',
+          border: '1px dashed var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '16px'
+        }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.25)'
+          }}>
+            <RefreshCw size={28} className="animate-spin" color="var(--accent-emerald)" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+              Loading NGO Portal Records...
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+              Connecting to Bengaluru Urban Stray Grid and fetching live canine records.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* TAB 1: CENTRAL ANIMAL DATABASE (EDIT, DELETE, ADD, APPROVE) */}
+          {activeTab === 'database' && (
         <div className="cyber-card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
@@ -901,6 +939,8 @@ export default function NgoDashboardPage() {
           </div>
 
         </div>
+      )}
+        </>
       )}
 
       {/* MODAL: EDIT DOG RECORD */}
