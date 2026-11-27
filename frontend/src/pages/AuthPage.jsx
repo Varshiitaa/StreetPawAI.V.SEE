@@ -98,7 +98,6 @@ export default function AuthPage({ onLoginSuccess }) {
           localStorage.setItem('streetpaw_token', data.access_token);
         }
 
-        alert("Account created successfully!");
         onLoginSuccess({
           ...data.user,
           name: data.user.full_name || data.user.username,
