@@ -30,16 +30,22 @@ def get_all_rescue_cases(
     complaints = query.order_by(Complaint.created_at.desc()).all()
     rescues = db.query(RescueCase).order_by(RescueCase.created_at.desc()).all()
 
+    # Optimized bulk fetch of timeline events in 1 single query instead of N queries
+    c_ids = [c.id for c in complaints]
+    events_by_complaint = {}
+    if c_ids:
+        all_events = db.query(ComplaintEvent).filter(ComplaintEvent.complaint_id.in_(c_ids)).order_by(ComplaintEvent.created_at.asc()).all()
+        for ev in all_events:
+            events_by_complaint.setdefault(ev.complaint_id, []).append({
+                "id": ev.id,
+                "status": ev.status,
+                "note": ev.note,
+                "created_at": ev.created_at.isoformat() if ev.created_at else None
+            })
+
     result = []
     for c in complaints:
-        # Fetch timeline events
-        events = db.query(ComplaintEvent).filter(ComplaintEvent.complaint_id == c.id).order_by(ComplaintEvent.created_at.asc()).all()
-        events_list = [{
-            "id": ev.id,
-            "status": ev.status,
-            "note": ev.note,
-            "created_at": ev.created_at.isoformat() if ev.created_at else None
-        } for ev in events]
+        events_list = events_by_complaint.get(c.id, [])
 
         result.append({
             "id": c.id,

@@ -129,6 +129,9 @@ def list_dog_registry(
         "total_pages": (total + limit - 1) // limit if limit > 0 else 1
     }
 
+_pins_cache = {}
+_pins_cache_time = 0
+
 # -----------------------------------------------------------------------------
 # 2. MAP PINS ENDPOINT
 # -----------------------------------------------------------------------------
@@ -139,7 +142,13 @@ def get_all_map_pins(
     status: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    response.headers["Cache-Control"] = "public, max-age=60"
+    global _pins_cache, _pins_cache_time
+    response.headers["Cache-Control"] = "public, max-age=30"
+
+    cache_key = f"{bbox}_{status}"
+    now_ts = time.time()
+    if cache_key in _pins_cache and (now_ts - _pins_cache_time) < 15.0:
+        return _pins_cache[cache_key]
 
     min_lng, min_lat, max_lng, max_lat = None, None, None, None
     if bbox:
@@ -279,6 +288,8 @@ def get_all_map_pins(
             "image": "/dogs_dataset/Copy of An_Indian_Pariah_Dog.jpg",
         })
 
+    _pins_cache[cache_key] = pins
+    _pins_cache_time = now_ts
     return pins
 
 # -----------------------------------------------------------------------------
