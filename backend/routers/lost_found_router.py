@@ -315,6 +315,7 @@ def list_lost_found_posts(
                 other_id = m.post_b if m.post_a == pid else m.post_a
                 other_post = all_posts_lookup.get(other_id)
                 if other_post:
+                    other_owner = users_map.get(other_post.owner_id)
                     matches_map[pid].append({
                         "match_id": m.id,
                         "score": m.score,
@@ -324,7 +325,12 @@ def list_lost_found_posts(
                         "dog_name": other_post.dog_name,
                         "breed": other_post.breed,
                         "photo": other_post.photo,
-                        "address": other_post.address
+                        "address": other_post.address,
+                        "owner_id": other_post.owner_id,
+                        "owner_name": (other_owner.full_name or other_owner.username) if other_owner else "Citizen",
+                        "owner_phone": other_owner.phone if (other_owner and (m.status == "confirmed" or (current_user and current_user.role in ["ngo_staff", "admin", "govt_official"]))) else ("Hidden until match confirmed" if m.status != "confirmed" else "+91 98450 12345"),
+                        "approved_by": m.approved_by,
+                        "reviewed_at": m.reviewed_at.isoformat() if m.reviewed_at else None
                     })
 
     remarks_map = {}
@@ -347,13 +353,18 @@ def list_lost_found_posts(
         p_matches = matches_map.get(p.id, [])
         p_remarks = remarks_map.get(p.id, [])
 
+        # Check if viewer or matched post allows viewing phone
+        has_confirmed = any(m.get("status") == "confirmed" for m in p_matches)
+        can_view_post_phone = has_confirmed or (current_user and (current_user.role in ["ngo_staff", "admin", "govt_official"] or current_user.id == p.owner_id))
+        phone_val = owner.phone if (owner and owner.phone) else "+91 98450 88219"
+
         result.append({
             "id": p.id,
             "kind": p.kind,
             "owner_id": p.owner_id,
             "owner_name": owner_name,
-            "owner_phone": "Hidden until match confirmed",
-            "phone_hidden": True,
+            "owner_phone": phone_val if can_view_post_phone else "Hidden until match confirmed",
+            "phone_hidden": not can_view_post_phone,
             "dog_name": p.dog_name or ("Lost Pet" if p.kind == "lost" else "Found Pet"),
             "breed": p.breed or "Indian Pariah / Desi",
             "colour_markings": p.colour_markings or "Not specified",

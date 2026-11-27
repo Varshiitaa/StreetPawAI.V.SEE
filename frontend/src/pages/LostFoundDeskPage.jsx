@@ -9,6 +9,8 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
   const [editingMatch, setEditingMatch] = useState(null);
   const [editStatusValue, setEditStatusValue] = useState('suggested');
 
+  const [toastMessage, setToastMessage] = useState(null);
+
   useEffect(() => {
     fetchPosts();
   }, [searchQuery]);
@@ -50,6 +52,7 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
             matchedAddress: m.address,
             matchedOwnerId: m.owner_id,
             matchedOwnerName: m.owner_name,
+            matchedOwnerPhone: m.owner_phone,
             approvedBy: m.approved_by,
             approvedByName: m.approved_by_name,
             reviewedAt: m.reviewed_at
@@ -68,14 +71,18 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
         headers
       });
       if (res.ok) {
-        alert("Match Confirmed! Phone contact unlocked for pet owner and finder.");
+        setToastMessage({ type: 'success', text: "✓ Match Confirmed! Direct phone contacts unlocked for pet owner and finder." });
+        setTimeout(() => setToastMessage(null), 6000);
         fetchPosts();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`Failed: ${err.detail || 'Could not confirm'}`);
+        setToastMessage({ type: 'error', text: `Failed: ${err.detail || 'Could not confirm'}` });
+        setTimeout(() => setToastMessage(null), 5000);
       }
     } catch (err) {
       console.error(err);
+      setToastMessage({ type: 'error', text: 'Network error confirming match.' });
+      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
@@ -135,6 +142,32 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
           Monitor missing pets, stray sightings, and AI Re-ID pair similarity matches
         </span>
       </div>
+
+      {/* TOAST NOTIFICATION BANNER */}
+      {toastMessage && (
+        <div style={{
+          padding: '12px 18px',
+          borderRadius: '10px',
+          background: toastMessage.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          border: `1px solid ${toastMessage.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: toastMessage.type === 'success' ? '#a7f3d0' : '#fca5a5',
+          fontSize: '0.9rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-in-out'
+        }}>
+          <span>{toastMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 900 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* TABS */}
       <div style={{ display: 'flex', gap: '8px', background: 'rgba(30, 41, 59, 0.8)', padding: '6px', borderRadius: 'var(--radius-xl)' }}>
@@ -239,7 +272,15 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>📍 {m.postA.address}</div>
                           <div style={{ fontSize: '0.75rem', color: '#4ade80', marginTop: '6px' }}>
                             Uploader: <strong>{m.postA.owner_name}</strong> (User #{m.postA.owner_id})
-                            {m.postA.owner_phone ? ` • ${m.postA.owner_phone}` : ''}
+                            {m.postA.owner_phone && m.postA.owner_phone !== 'Hidden until match confirmed' ? (
+                              <div style={{ marginTop: '4px', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Phone size={12} /> Contact: {m.postA.owner_phone}
+                              </div>
+                            ) : (
+                              <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Lock size={12} /> Phone hidden until confirmed
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -260,6 +301,15 @@ export function LostFoundDeskPage({ authToken, searchQuery }) {
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>📍 {m.matchedAddress}</div>
                           <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '6px' }}>
                             Candidate Owner: <strong>{m.matchedOwnerName || 'Citizen'}</strong> {m.matchedOwnerId ? `(User #${m.matchedOwnerId})` : ''}
+                            {m.matchedOwnerPhone && m.matchedOwnerPhone !== 'Hidden until match confirmed' ? (
+                              <div style={{ marginTop: '4px', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Phone size={12} /> Contact: {m.matchedOwnerPhone}
+                              </div>
+                            ) : (
+                              <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Lock size={12} /> Phone hidden until confirmed
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
